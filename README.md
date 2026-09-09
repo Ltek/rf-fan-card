@@ -84,10 +84,12 @@ the ✎ button snapshots the full map into your config first, so the others aren
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
 
-1. Click the badge above (adds this repo to HACS), or in HACS → **⋮ → Custom repositories** add `https://github.com/Ltek/rf-fan-card` as type **Dashboard**.
-2. Install **RF Fan Card**. HACS adds the Dashboard resource for you.
-3. Clear your browser cache and hard-refresh.
-4. Add the card to a dashboard: type **RF Fan Card** in the card picker, or use the YAML below.
+1. Click the badge above to open **RF Fan Card** directly in HACS, then install it.
+2. Alternatively, in HACS → **⋮ → Custom repositories**, add `https://github.com/Ltek/rf-fan-card` as type **Dashboard**.
+3. HACS will add the dashboard resource automatically.
+4. Clear your browser cache and hard-refresh Home Assistant.
+5. Add the card to a dashboard: search for **RF Fan Card** in the card picker, or use the YAML below.
+
 
 ### Manual
 
