@@ -1,0 +1,60 @@
+# RF Fan — Complete Code Map (v3, 2026-08-31).
+# These are the SAME codes baked into rf-fan-test-card.js as defaults, so you
+# only need this block if you want to paste an explicit override into the card's
+# `codes:` field (or edit/trim it). Values are BARE 26-bit rc_switch strings —
+# the ESPHome gateway's transmit_rc_switch_raw sets the protocol itself, so there
+# is NO "6:"/"<proto>:" prefix. (Docs call these "protocol 6"; that number is not
+# part of the transmitted string.) A `raw:` timings fallback also works per row.
+#
+# Action keys are aligned to the ha-rf-fan integration's naming where one exists
+# (speed_N / reverse_N are this card's convention since the integration only has
+# forward fan_speed_N; the fan's reverse frames are the last-6-bits variant).
+
+type: custom:rf-fan-test-card
+title: RF Fan Test
+gateway_service: rf_fan_gateway        # <-- change to YOUR esphome service prefix
+repeat_count: 4
+state_helper: input_text.rf_fan_test_results   # <-- your input_text helper
+codes:
+  # ---- Forward Speeds ----
+  speed_0: "01011110000000100000010000"   # Speed 0 (off)
+  speed_1: "01011110000000100001010000"
+  speed_2: "01011110000000100010010000"
+  speed_3: "01011110000000100011010000"
+  speed_4: "01011110000000100100010000"
+  speed_5: "01011110000000100101010000"
+  speed_6: "01011110000000100110010000"
+  speed_7: "01011110000000100111010000"
+  speed_8: "01011110000000101000010000"
+  speed_9: "01011110000000101001010000"
+  # ---- Reverse Speeds (forward code, last 6 bits 010000 -> 100000) ----
+  reverse_0: "01011110000000100000100000"
+  reverse_1: "01011110000000100001100000"
+  reverse_2: "01011110000000100010100000"
+  reverse_3: "01011110000000100011100000"
+  reverse_4: "01011110000000100100100000"
+  reverse_5: "01011110000000100101100000"
+  reverse_6: "01011110000000100110100000"
+  reverse_7: "01011110000000100111100000"
+  reverse_8: "01011110000000101000100000"
+  reverse_9: "01011110000000101001100000"
+  # ---- Light ----
+  light_toggle: "01011110000000100101010100"
+  # ---- Dimming ----
+  dim_up: "01011110000000100101010010"
+  dim_down: "01011110000000100101010011"
+  # ---- Breeze / Natural — Forward ----
+  breeze_1: "01011110000000101011010000"
+  breeze_2: "01011110000000101100010000"
+  breeze_3: "01011110000000101101010000"
+  # ---- Breeze / Natural — Reverse ----
+  reverse_breeze_1: "01011110000000101011100000"
+  reverse_breeze_2: "01011110000000101100100000"
+  reverse_breeze_3: "01011110000000101101100000"
+  # ---- Breeze Off (dedicated code) ----
+  breeze_off: "01011110000000100001000000"
+  # ---- Timers ----
+  timer_off: "01011110000000101100101001"
+  timer_2h: "01011110000000101100101010"
+  timer_4h: "01011110000000101100101011"
+  timer_8h: "01011110000000101100101100"
