@@ -19,7 +19,7 @@ codes **straight to the ESPHome node, bypassing the integration's Python layer e
 (as set up by the `ha-rf-fan` integration / its gateway YAML). The card only *transmits*.
 
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=plugin)
 
 ## Layout
 
@@ -83,7 +83,7 @@ the ✎ button snapshots the full map into your config first, so the others aren
 
 ### Via HACS (recommended)
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=plugin)
 
 1. In HACS → **⋮ (top-right) → Custom repositories**, add `https://github.com/Ltek/rf-fan-card`
    with type **Dashboard**, then **Add**.
