@@ -191,4 +191,16 @@ For the full explicit code map (and a `raw:` fallback per row), see
 ## Screenshots
 
 <!-- SCREENSHOTS:START -->
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <img src="screenshots/remote1.jpg" width="100%" alt="remote1">
+    </td>
+    <td align="center" valign="top">
+      <img src="screenshots/test1.jpg" width="100%" alt="test1">
+    </td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
 <!-- SCREENSHOTS:END -->
