@@ -1,3 +1,5 @@
 {
-  "name": "RF Fan Card"
+  "name": "RF Fan by LTek",
+  "filename": "rf-fan-ltek.js",
+  "render_readme": true
 }

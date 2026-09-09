@@ -1,5 +1,5 @@
 # RF Fan — Complete Code Map (v3, 2026-08-31).
-# These are the SAME codes baked into rf-fan-card.js as defaults, so you
+# These are the SAME codes baked into rf-fan-ltek.js as defaults, so you
 # only need this block if you want to paste an explicit override into the card's
 # `codes:` field (or edit/trim it). Values are BARE 26-bit rc_switch strings —
 # the ESPHome gateway's transmit_rc_switch_raw sets the protocol itself, so there
@@ -10,8 +10,8 @@
 # (speed_N / reverse_N are this card's convention since the integration only has
 # forward fan_speed_N; the fan's reverse frames are the last-6-bits variant).
 
-type: custom:rf-fan-card
-title: RF Fan Test
+type: custom:rf-fan-ltek
+title: RF Fan by LTek
 gateway_service: rf_fan_gateway        # <-- change to YOUR esphome service prefix
 repeat_count: 4
 state_helper: input_text.rf_fan_test_results   # <-- your input_text helper

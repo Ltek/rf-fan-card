@@ -1,6 +1,4 @@
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
-
-# RF Fan Card
+# RF Fan by LTek
 
 A Home Assistant custom **Dashboard** card for controlling and bench-testing a 433 MHz RF fan.
 Repo: **[Ltek/rf-fan-card](https://github.com/Ltek/rf-fan-card)**.
@@ -82,22 +80,25 @@ the ✎ button snapshots the full map into your config first, so the others aren
 
 ### Via HACS (recommended)
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
+This card is a **custom repository** (not in the HACS default store), so add it manually:
 
-1. Click the badge above to open **RF Fan Card** directly in HACS, then install it.
-2. Alternatively, in HACS → **⋮ → Custom repositories**, add `https://github.com/Ltek/rf-fan-card` as type **Dashboard**.
-3. HACS will add the dashboard resource automatically.
-4. Clear your browser cache and hard-refresh Home Assistant.
-5. Add the card to a dashboard: search for **RF Fan Card** in the card picker, or use the YAML below.
+1. In HACS → **⋮ (top-right) → Custom repositories**, add `https://github.com/Ltek/rf-fan-card`
+   with type **Dashboard**, then **Add**.
+2. Find **RF Fan by LTek** in HACS and **Download** it. HACS adds the Dashboard resource for you.
+3. Clear your browser cache and hard-refresh.
+4. Add the card to a dashboard: type **RF Fan by LTek** in the card picker, or use the YAML below.
 
+> The one-click *"My Home Assistant → HACS repository"* badges only work for cards already in the
+> HACS **default store**; for a custom repository they report *"Repository not found."* Use the
+> manual step above.
 
 ### Manual
 
-1. Copy `rf-fan-card.js` to `/config/www/rf-fan-card.js`.
+1. Copy `rf-fan-ltek.js` to `/config/www/rf-fan-ltek.js`.
 2. Add it as a Dashboard resource (Settings → Dashboards → ⋮ → Resources):
-   - URL: `/local/rf-fan-card.js`
+   - URL: `/local/rf-fan-ltek.js`
    - Type: **JavaScript Module**
-3. Add the card to a dashboard: type **RF Fan Card** in the card picker, or use the YAML below.
+3. Add the card to a dashboard: type **RF Fan by LTek** in the card picker, or use the YAML below.
 
 ## Set up the Tested/Working helper
 
@@ -120,7 +121,7 @@ field.
 ## Minimal YAML (uses built-in codes)
 
 ```yaml
-type: custom:rf-fan-card
+type: custom:rf-fan-ltek
 title: RF Fan Test
 gateway_service: rf_fan_gateway
 state_helper: input_text.rf_fan_test_results
@@ -129,7 +130,7 @@ state_helper: input_text.rf_fan_test_results
 Remote-only, single power button, breeze folded into the speed rows:
 
 ```yaml
-type: custom:rf-fan-card
+type: custom:rf-fan-ltek
 title: Bedroom Fan
 gateway_service: rf_fan_gateway
 show_test: false          # remote only → view chips hidden automatically
@@ -188,21 +189,3 @@ For the full explicit code map (and a `raw:` fallback per row), see
   dedicated code (not derived).
 - Tested/Working are stored keyed by action name and guarded by a hash of the code set — if you
   change the `codes` map, old flags are safely ignored rather than mislabeled.
----
-
-## Screenshots
-
-<!-- SCREENSHOTS:START -->
-<table>
-  <tr>
-    <td align="center" valign="top">
-      <img src="screenshots/remote1.jpg" width="100%" alt="remote1">
-    </td>
-    <td align="center" valign="top">
-      <img src="screenshots/test1.jpg" width="100%" alt="test1">
-    </td>
-    <td></td>
-    <td></td>
-  </tr>
-</table>
-<!-- SCREENSHOTS:END -->

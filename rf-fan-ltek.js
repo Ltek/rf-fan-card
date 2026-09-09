@@ -1,5 +1,5 @@
 // ============================================================================
-// RF Fan Test Card
+// RF Fan by LTek
 // Version: v2026.09.09.21
 // ----------------------------------------------------------------------------
 // A Home Assistant custom Dashboard card for BENCH-TESTING the RF codes learned
@@ -413,7 +413,7 @@ function unpackOverlay(str, order) {
 
 function stubConfig() {
   return {
-    type: 'custom:rf-fan-test-card',
+    type: 'custom:rf-fan-ltek',
     title: '',
     gateway_service: '',   // ESPHome prefix -> esphome.<prefix>_transmit_rf_fan
     codes: {},             // {} => use built-in DEFAULT_CODES
@@ -515,7 +515,7 @@ function normalizeConfigFull(config) {
   return {
     ...stub,
     ...config,
-    type: 'custom:rf-fan-test-card',
+    type: 'custom:rf-fan-ltek',
     title: typeof config.title === 'string' ? config.title : '',
     gateway_service: typeof config.gateway_service === 'string' ? config.gateway_service.trim() : '',
     codes: normalizeCodes(config.codes),
@@ -550,7 +550,7 @@ function normalizeLightBase(config) {
 
 function normalizeConfig(config) {
   const full = normalizeConfigFull(config || {});
-  const out = { type: 'custom:rf-fan-test-card' };
+  const out = { type: 'custom:rf-fan-ltek' };
   if (full.title && full.title.trim()) out.title = full.title;
   if (full.gateway_service) out.gateway_service = full.gateway_service;
   if (Object.keys(full.codes).length) out.codes = full.codes;
@@ -696,8 +696,8 @@ class RFTCard extends HTMLElement {
     return Math.min(30, Math.ceil(n / 2) + 3);
   }
 
-  static getConfigElement() { return document.createElement('rf-fan-test-card-editor'); }
-  static getStubConfig() { return { type: 'custom:rf-fan-test-card' }; }
+  static getConfigElement() { return document.createElement('rf-fan-ltek-editor'); }
+  static getStubConfig() { return { type: 'custom:rf-fan-ltek' }; }
 
   // ------------------------------------------------------------------------
   // OVERLAY SYNC
@@ -1664,7 +1664,7 @@ class RFTCardEditor extends HTMLElement {
 
         <div class="rft-ed-header">
           <ha-icon icon="mdi:remote"></ha-icon>
-          <span class="rft-ed-title">RF Fan Test Card</span>
+          <span class="rft-ed-title">RF Fan by LTek</span>
           <span class="rft-ed-build">${BUILD_NUMBER}</span>
         </div>
 
@@ -2024,13 +2024,13 @@ class RFTCardEditor extends HTMLElement {
 // ============================================================================
 // REGISTER CUSTOM ELEMENTS
 // ============================================================================
-console.log(`📦 Registering rf-fan-test-card custom elements... [${BUILD_NUMBER}]`);
-customElements.define('rf-fan-test-card', RFTCard);
-customElements.define('rf-fan-test-card-editor', RFTCardEditor);
-console.log('[rf-fan-test-card] Loaded successfully -', BUILD_NUMBER);
+console.log(`📦 Registering rf-fan-ltek custom elements... [${BUILD_NUMBER}]`);
+customElements.define('rf-fan-ltek', RFTCard);
+customElements.define('rf-fan-ltek-editor', RFTCardEditor);
+console.log('[rf-fan-ltek] Loaded successfully -', BUILD_NUMBER);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: 'rf-fan-test-card',
-  name: 'RF Fan Test Card',
+  type: 'rf-fan-ltek',
+  name: 'RF Fan by LTek',
   description: 'Bench-test RF fan codes directly through the ESPHome gateway; grouped in sections with per-code tested/working tracking.',
 });
