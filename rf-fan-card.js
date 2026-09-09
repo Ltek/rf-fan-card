@@ -1,6 +1,6 @@
 // ============================================================================
 // RF Fan Test Card
-// Version: v2026.09.09.13
+// Version: v2026.09.09.21
 // ----------------------------------------------------------------------------
 // A Home Assistant custom Dashboard card for BENCH-TESTING the RF codes learned
 // from a 433 MHz fan remote (companion to the `rf_fan` integration,
@@ -28,7 +28,7 @@
 // byte-stable sparse config, editMode/preview safety.
 // ============================================================================
 
-const BUILD_NUMBER = 'v2026.09.09.13';
+const BUILD_NUMBER = 'v2026.09.09.21';
 
 let DEBUG = false;
 function debugLog(...args) { if (DEBUG) { try { console.log('[RFT]', ...args); } catch (e) {} } }
@@ -132,6 +132,58 @@ function normalizeTxCode(code) {
   return m ? m[2] : s;
 }
 
+// Light/Dim are MODIFIERS on the current speed base: the first 20 bits select
+// the speed, the last 6 are the command. The physical remote keeps the current
+// speed in every light/dim frame so it doesn't change speed. A fixed captured
+// code carries whatever speed it was captured at, so replaying it re-sends that
+// speed. We rebuild the frame from the current speed's prefix + the command's
+// suffix so light/dim never disturb a running fan.
+const REBASE_ACTIONS = { light_toggle: 1, dim_up: 1, dim_down: 1 };
+const CMD_SUFFIX_LEN = 6;   // trailing bits carry direction + command modifier
+const SPEED_FIELD_START = 16, SPEED_FIELD_LEN = 4;   // bits 16-19 select the speed
+
+// Base a Light/Dim command rides on so it doesn't change the fan speed. The
+// 'fake_*' options put an UNUSED value in the 4-bit speed field (real speeds are
+// 0000-1001, breeze uses 1011/1100/1101), betting the fan ignores the unknown
+// speed but still reads the light/dim bit. Which one (if any) works is
+// firmware-specific — that's what the radios are for.
+const LIGHT_BASE_OPTS = [
+  { value: 'fwd0',       label: 'Forward Speed-0 (real)' },
+  { value: 'rev0',       label: 'Reverse Speed-0 (real)' },
+  { value: 'fake_1010',  label: 'Fake speed 1010' },
+  { value: 'fake_1110',  label: 'Fake speed 1110' },
+  { value: 'fake_1111',  label: 'Fake speed 1111' },
+  { value: 'last_speed', label: 'Last speed pressed here' },
+  { value: 'literal',    label: 'Literal captured code' }
+];
+const LIGHT_BASE_VALUES = LIGHT_BASE_OPTS.map(o => o.value);
+
+function _xorBits(a, b) {
+  let out = '';
+  for (let i = 0; i < a.length; i++) out += (a[i] === b[i] ? '0' : '1');
+  return out;
+}
+
+// Rebuild a Light/Dim command onto a chosen speed base WITHOUT changing the
+// fan's speed. Structure (this fan): first (len-6) bits select the speed; the
+// last 6 carry direction + the command modifier. A forward speed's suffix is
+// the "baseline"; a command's modifier is (its suffix XOR that baseline). We
+// apply that modifier onto the TARGET base's own suffix, so the target keeps
+// its speed (prefix) AND its direction bits, only gaining the light/dim bit.
+//   result = prefix(target) + (suffix(target) XOR suffix(command) XOR suffix(fwdRef))
+// fwdRef is any forward speed code (its suffix = the direction/command baseline).
+// Returns the command unchanged if the strings aren't rebaseable bit strings.
+function rebaseCommandOntoSpeed(commandCode, targetCode, fwdRefCode) {
+  const isBits = s => typeof s === 'string' && /^[01]+$/.test(s);
+  if (!isBits(commandCode) || !isBits(targetCode) || !isBits(fwdRefCode)) return commandCode;
+  const L = commandCode.length;
+  if (targetCode.length !== L || fwdRefCode.length !== L || L <= CMD_SUFFIX_LEN) return commandCode;
+  const cut = L - CMD_SUFFIX_LEN;
+  const modifier = _xorBits(commandCode.slice(cut), fwdRefCode.slice(cut));   // pure command bits
+  const newSuffix = _xorBits(targetCode.slice(cut), modifier);
+  return targetCode.slice(0, cut) + newSuffix;
+}
+
 function humanizeAction(action) {
   if (!action) return '';
   return String(action)
@@ -189,7 +241,7 @@ const SECTION_DEFS = [
   {
     id: 'light', title: 'Light', icon: 'mdi:lightbulb', numbered: false,
     rows: [
-      ['light_toggle', 'Light Toggle', '01011110000000100101010100']
+      ['light_toggle', 'Light Toggle', '01011110000000100000010100']
     ]
   },
   {
@@ -378,6 +430,15 @@ function stubConfig() {
     single_power: false,   // true: one on/off button (top-right) instead of per-direction offs
     single_power_dir: 'fwd', // which off code the single power button sends: 'fwd' | 'rev'
     headers: {},           // per-group section-header visibility (see DEFAULT_HEADERS)
+    // Base used when the remote sends a Light/Dim command (which is a modifier
+    // layered on a speed base). Options:
+    //   'fwd0'       — always the Forward Speed-0 base (fixed; recommended)
+    //   'rev0'       — always the Reverse Speed-0 base (fixed; for testing)
+    //   'last_speed' — rebase on the last speed pressed FROM THIS CARD
+    //   'literal'    — send the captured code as-is (no rebase)
+    light_base: 'fake_1111',
+    show_capture: false,   // master toggle for the live capture readout
+    capture: {},           // per-element show/hide (see DEFAULT_CAPTURE)
     min_refresh_seconds: 0
   };
 }
@@ -394,6 +455,17 @@ function normalizeHeaders(h) {
   return out;
 }
 function headersAreDefault(h) { return HEADER_GROUPS.every(k => h[k] === DEFAULT_HEADERS[k]); }
+
+// Capture-readout element visibility. Everything on by default.
+const CAPTURE_ELEMS = ['tx', 'rx', 'count', 'match'];
+const DEFAULT_CAPTURE = { tx: true, rx: true, count: true, match: true };
+function normalizeCapture(cp) {
+  cp = isPlainObject(cp) ? cp : {};
+  const out = {};
+  CAPTURE_ELEMS.forEach(k => { out[k] = (typeof cp[k] === 'boolean') ? cp[k] : DEFAULT_CAPTURE[k]; });
+  return out;
+}
+function captureIsDefault(cp) { return CAPTURE_ELEMS.every(k => cp[k] === DEFAULT_CAPTURE[k]); }
 
 // The full set of actions the remote can show, in display order. Used by the
 // renderer and by the editor's per-button show/hide list.
@@ -460,8 +532,20 @@ function normalizeConfigFull(config) {
     single_power: config.single_power === true,
     single_power_dir: config.single_power_dir === 'rev' ? 'rev' : 'fwd',
     headers: normalizeHeaders(config.headers),
+    light_base: normalizeLightBase(config),
+    show_capture: config.show_capture === true,
+    capture: normalizeCapture(config.capture),
     min_refresh_seconds: Math.max(0, Number(config.min_refresh_seconds) || 0)
   };
+}
+
+// Light/Dim base mode, with back-compat for the old `dynamic_light` bool
+// (true → last_speed, false → literal).
+function normalizeLightBase(config) {
+  if (LIGHT_BASE_VALUES.includes(config.light_base)) return config.light_base;
+  if (config.dynamic_light === true) return 'last_speed';
+  if (config.dynamic_light === false) return 'literal';
+  return 'fake_1111';
 }
 
 function normalizeConfig(config) {
@@ -480,6 +564,13 @@ function normalizeConfig(config) {
   if (full.default_view !== 'remote') out.default_view = full.default_view;
   if (full.hidden_buttons.length) out.hidden_buttons = full.hidden_buttons.slice();
   if (full.breeze_with_speed === true) out.breeze_with_speed = true;
+  if (full.light_base !== 'fake_1111') out.light_base = full.light_base;
+  if (full.show_capture === true) out.show_capture = true;
+  if (!captureIsDefault(full.capture)) {
+    const cp = {};
+    CAPTURE_ELEMS.forEach(k => { if (full.capture[k] !== DEFAULT_CAPTURE[k]) cp[k] = full.capture[k]; });
+    out.capture = cp;
+  }
   if (full.single_power === true) out.single_power = true;
   if (full.single_power_dir === 'rev') out.single_power_dir = 'rev';
   if (!headersAreDefault(full.headers)) {
@@ -522,10 +613,16 @@ class RFTCard extends HTMLElement {
     this._flat = {};         // action -> row
     this._view = null;       // { remote: bool, test: bool } — live show/hide
     this._lastPressed = {};  // category -> last-pressed action (browser-persisted)
+    this._capture = {
+      unsub: null,
+      tx: { code: null, matched: null, count: 0 },
+      rx: { code: null, matched: null, count: 0 }
+    };
   }
 
   disconnectedCallback() {
     if (this._updateTimer) { clearTimeout(this._updateTimer); this._updateTimer = null; }
+    this._stopCapture();
   }
 
   setConfig(config) {
@@ -714,6 +811,11 @@ class RFTCard extends HTMLElement {
           </span>
         </div>
         ${banner}
+        ${c.show_capture && (c.capture.tx || c.capture.rx) ? `
+          <div class="rft-capture">
+            ${c.capture.tx ? `<div class="rft-capture-line rft-cap-tx-line">${this._captureLineHtml(this._capture.tx, 'TX', 'Last Sent')}</div>` : ''}
+            ${c.capture.rx ? `<div class="rft-capture-line rft-cap-rx-line">${this._captureLineHtml(this._capture.rx, 'RX', 'Last Received')}</div>` : ''}
+          </div>` : ''}
         <div class="rft-body">
           ${c.show_remote ? `<div class="rft-remote-wrap" data-region="remote"${showRemote ? '' : ' hidden'}>${this._renderRemote()}</div>` : ''}
           ${c.show_test ? `<div class="rft-test-wrap" data-region="test"${showTest ? '' : ' hidden'}>
@@ -724,6 +826,8 @@ class RFTCard extends HTMLElement {
       </ha-card>
     `;
     this._attachHandlers();
+    if (c.show_capture) { this._startCapture(); this._renderCaptureReadout(); }
+    else this._stopCapture();
   }
 
   // ------------------------------------------------------------------------
@@ -861,9 +965,22 @@ class RFTCard extends HTMLElement {
     return { total: s.rows.length, tested, working };
   }
 
+  // Inline Light/Dim base selector (radios) — shown at the top of the Light
+  // section in the Test UI so you can A/B the base without opening the editor.
+  _renderBaseSelector() {
+    return `
+      <div class="rft-basesel">
+        <label class="rft-basesel-title" for="rft-lightbase-sel">Light/Dim base (remote transmits on this):</label>
+        <select id="rft-lightbase-sel" class="rft-basesel-select">
+          ${LIGHT_BASE_OPTS.map(o => `<option value="${o.value}"${this._config.light_base === o.value ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
   _renderSection(s) {
     const open = this._config.sections_open;
     const cc = this._sectionCounts(s);
+    const hasRebase = s.rows.some(r => REBASE_ACTIONS[r.action]);
     return `
       <details class="rft-section" data-section="${escapeHtml(s.id)}"${open ? ' open' : ''}>
         <summary class="rft-section-sum">
@@ -872,6 +989,7 @@ class RFTCard extends HTMLElement {
           <span class="rft-section-meta">${cc.total} · ${cc.tested}✓ tested · ${cc.working}✓ working</span>
         </summary>
         <div class="rft-section-body">
+          ${hasRebase ? this._renderBaseSelector() : ''}
           <table class="rft-table">
             <thead><tr>
               <th class="rft-c-trigger">Function</th>
@@ -973,6 +1091,23 @@ class RFTCard extends HTMLElement {
       .rft-banner code { font-family: var(--code-font-family,monospace); }
       .rft-warn { background: rgba(255,179,0,0.12); color: var(--primary-text-color,#e1e1e1); border: 1px solid var(--warning-color,#ffb300); }
       .rft-info { background: rgba(33,150,243,0.10); color: var(--secondary-text-color,#bbb); border: 1px solid var(--divider-color,#3a3a3a); }
+      .rft-capture { display: flex; flex-direction: column; gap: 6px; margin: 2px 2px 10px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--divider-color,#444); background: rgba(255,255,255,0.02); font-size: 12px; }
+      .rft-capture-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .rft-capture-label { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--secondary-text-color,#aaa); white-space: nowrap; }
+      .rft-capture-val { flex: 1 1 auto; min-width: 0; }
+      .rft-cap-code { font-family: var(--code-font-family,monospace); color: var(--primary-text-color,#e1e1e1); word-break: break-all; }
+      .rft-cap-sep { color: var(--secondary-text-color,#666); }
+      .rft-cap-match { color: var(--success-color,#4caf50); }
+      .rft-cap-nomatch { color: var(--warning-color,#ffb300); }
+      .rft-cap-none { color: var(--secondary-text-color,#777); font-style: italic; }
+      .rft-cap-count { color: var(--secondary-text-color,#777); font-variant-numeric: tabular-nums; font-weight: 400; }
+      .rft-cap-dir { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+      .rft-cap-sent { background: rgba(var(--rgb-primary-color,33,150,243),0.25); color: var(--primary-text-color,#e1e1e1); }
+      .rft-cap-recv { background: rgba(76,175,80,0.25); color: var(--primary-text-color,#e1e1e1); }
+      .rft-basesel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 4px 10px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--divider-color,#444); background: rgba(255,255,255,0.02); }
+      .rft-basesel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--secondary-text-color,#888); }
+      .rft-basesel-select { padding: 5px 10px; border-radius: 6px; border: 1px solid var(--divider-color,#444); background: var(--secondary-background-color,#2a2a2a); color: var(--primary-text-color,#e1e1e1); font-size: 12px; }
+      .rft-capture-count { color: var(--secondary-text-color,#777); font-variant-numeric: tabular-nums; }
       .rft-body { display: flex; flex-direction: column; gap: 8px; padding: 2px; }
       .rft-empty { color: var(--secondary-text-color,#888); font-size: 13px; padding: 16px 8px; }
 
@@ -1027,9 +1162,9 @@ class RFTCard extends HTMLElement {
     root.querySelectorAll('.rft-vtoggle').forEach(b => b.addEventListener('click', (e) => {
       e.stopPropagation(); this._onViewToggle(b.getAttribute('data-view'));
     }));
-    // Remote: transmit buttons (share the same path as test triggers).
+    // Remote: transmit buttons — fromRemote=true so light/dim rebase onto speed.
     root.querySelectorAll('.rft-rbtn').forEach(b => b.addEventListener('click', (e) => {
-      e.stopPropagation(); this._transmitAction(b.getAttribute('data-action'));
+      e.stopPropagation(); this._transmitAction(b.getAttribute('data-action'), true);
     }));
     root.querySelectorAll('.rft-trigger').forEach(b => b.addEventListener('click', (e) => {
       e.stopPropagation(); this._onTrigger(b.getAttribute('data-action'));
@@ -1043,15 +1178,147 @@ class RFTCard extends HTMLElement {
     root.querySelectorAll('.rft-working').forEach(cb => cb.addEventListener('change', () => {
       this._onFlag(cb.getAttribute('data-action'), 'w', cb.checked);
     }));
+    // Inline Light/Dim base selector (Test UI). Live-only: updates the runtime
+    // config so the next light/dim press uses it.
+    const baseSel = root.querySelector('#rft-lightbase-sel');
+    if (baseSel) baseSel.addEventListener('change', () => {
+      this._config.light_base = baseSel.value;
+      this._toast(`Light/Dim base: ${baseSel.value}`, false);
+    });
   }
 
   // ------------------------------------------------------------------------
   // TRIGGER — transmit the raw RF code directly via the ESPHome gateway.
   // Both the test-table rows and the remote buttons funnel through here.
   // ------------------------------------------------------------------------
-  _onTrigger(action) { return this._transmitAction(action); }
+  // Test-table triggers. Light/Dim still rebase onto the chosen base (so the
+  // base dropdown works here too); everything else sends literal.
+  _onTrigger(action) { return this._transmitAction(action, false); }
 
-  async _transmitAction(action) {
+  // Resolve the code to actually transmit. Light/Dim are modifiers on a speed
+  // base; from the remote we rebuild the frame on the base chosen by light_base
+  // so the command doesn't change the fan's speed:
+  //   'fwd0'/'rev0' — fixed Forward/Reverse Speed-0 base (reliable; ignores
+  //                   physical-remote speed changes)
+  //   'last_speed'  — base = last speed pressed from THIS card
+  //   'literal'     — no rebase (send the captured code as-is)
+  // A usable forward reference code (baseline suffix). Prefer speed_0, else any
+  // forward speed_N.
+  _fwdRefBits() {
+    let r = this._flat['speed_0'];
+    if (!r) { for (let n = 1; n <= 9; n++) { if (this._flat['speed_' + n]) { r = this._flat['speed_' + n]; break; } } }
+    return r ? normalizeTxCode(r.code) : null;
+  }
+
+  // Compute the base bit-string for the current light_base mode (or an explicit
+  // override mode). Returns null if it can't be built.
+  _lightBaseBits(mode) {
+    if (mode === 'fwd0') { const r = this._flat['speed_0']; return r ? normalizeTxCode(r.code) : null; }
+    if (mode === 'rev0') { const r = this._flat['reverse_0']; return r ? normalizeTxCode(r.code) : null; }
+    if (mode === 'last_speed') { const a = this._lastPressed && this._lastPressed.fan; const r = a && this._flat[a]; return r ? normalizeTxCode(r.code) : null; }
+    if (mode && mode.indexOf('fake_') === 0) {
+      // Take forward speed-0 and overwrite bits 16-19 with the fake pattern.
+      const base = this._flat['speed_0'] ? normalizeTxCode(this._flat['speed_0'].code) : this._fwdRefBits();
+      const pat = mode.slice(5);
+      if (!base || !/^[01]+$/.test(base) || pat.length !== SPEED_FIELD_LEN || base.length < SPEED_FIELD_START + SPEED_FIELD_LEN) return null;
+      return base.slice(0, SPEED_FIELD_START) + pat + base.slice(SPEED_FIELD_START + SPEED_FIELD_LEN);
+    }
+    return null;
+  }
+
+  // Only Light/Dim are rebased (they're speed modifiers); speeds/breeze/timers
+  // always send literal. Rebasing applies to BOTH the remote and the test-table
+  // Light/Dim rows, so the base dropdown affects what you see in either place.
+  _effectiveTxCode(action, literalBits, fromRemote) {
+    if (!REBASE_ACTIONS[action]) return literalBits;     // only light/dim rebase
+    const mode = this._config.light_base;
+    if (mode === 'literal') return literalBits;
+    const baseBits = this._lightBaseBits(mode);
+    const fwdRef = this._fwdRefBits();
+    if (!baseBits || !fwdRef) return literalBits;
+    return rebaseCommandOntoSpeed(literalBits, baseBits, fwdRef);
+  }
+
+  // ------------------------------------------------------------------------
+  // LIVE READOUT — shows the last code that went through the card ("sent",
+  // always works) AND the last code the fan's ESPHome node received from a
+  // physical remote (via event esphome.rf_fan_received, if that fires). Great
+  // for verifying exactly what the card transmits and for capturing codes.
+  // ------------------------------------------------------------------------
+  _matchAction(code) {
+    const bits = normalizeTxCode(code);
+    const codes = effectiveCodes(this._config);
+    for (const a of Object.keys(codes)) { if (normalizeTxCode(codes[a]) === bits) return a; }
+    return null;
+  }
+
+  // Record a code for the readout. dir: 'sent' (TX) | 'recv' (RX).
+  _noteCapture(code, dir) {
+    if (!code) return;
+    const slot = dir === 'recv' ? this._capture.rx : this._capture.tx;
+    slot.code = String(code);
+    slot.matched = this._matchAction(code);
+    slot.count++;
+    this._renderCaptureReadout();
+  }
+
+  _startCapture() {
+    if (!this._config.show_capture) return;
+    if (this._capture.unsub) return;   // already subscribed
+    const hass = this._hass;
+    if (!hass || !hass.connection || typeof hass.connection.subscribeEvents !== 'function') return;
+    const handler = (ev) => {
+      const data = (ev && ev.data) || {};
+      const code = data.code != null ? String(data.code) : '';
+      if (code) this._noteCapture(code, 'recv');
+    };
+    try {
+      const p = hass.connection.subscribeEvents(handler, 'esphome.rf_fan_received');
+      this._capture.unsub = p;   // store the promise; resolve to real unsub below
+      p.then(u => { if (this._capture.unsub === p) this._capture.unsub = u; else { try { u(); } catch (e) {} } })
+       .catch(() => { this._capture.unsub = null; });
+    } catch (e) { debugLog('capture subscribe failed', e); }
+  }
+
+  _stopCapture() {
+    const rec = this._capture;
+    if (!rec || !rec.unsub) return;
+    const u = rec.unsub;
+    rec.unsub = null;
+    if (typeof u === 'function') { try { u(); } catch (e) {} }
+    else if (u && typeof u.then === 'function') { u.then(fn => { try { fn(); } catch (e) {} }).catch(() => {}); }
+  }
+
+  // Format: [TX] Last Sent (#count)   <code> - match [name] / no match
+  _captureLineHtml(slot, dirLabel, text) {
+    const cap = this._config.capture || DEFAULT_CAPTURE;
+    const dirCls = dirLabel === 'RX' ? 'rft-cap-recv' : 'rft-cap-sent';
+    const cnt = (cap.count && slot.count) ? ` <span class="rft-cap-count">(#${slot.count})</span>` : '';
+    const label = `<span class="rft-capture-label"><span class="rft-cap-dir ${dirCls}">${dirLabel}</span> ${text}${cnt}</span>`;
+    let body;
+    if (!slot.code) {
+      body = '<span class="rft-cap-none">—</span>';
+    } else {
+      const code = `<code class="rft-cap-code">${escapeHtml(slot.code)}</code>`;
+      let match = '';
+      if (cap.match) {
+        match = slot.matched
+          ? ` <span class="rft-cap-sep">-</span> <span class="rft-cap-match">match: ${escapeHtml(effectiveLabel(this._config, slot.matched))} (${escapeHtml(slot.matched)})</span>`
+          : ` <span class="rft-cap-sep">-</span> <span class="rft-cap-nomatch">no match</span>`;
+      }
+      body = `${code}${match}`;
+    }
+    return `${label} <span class="rft-capture-val">${body}</span>`;
+  }
+
+  _renderCaptureReadout() {
+    const txLine = this.querySelector('.rft-cap-tx-line');
+    if (txLine) txLine.innerHTML = this._captureLineHtml(this._capture.tx, 'TX', 'Last Sent');
+    const rxLine = this.querySelector('.rft-cap-rx-line');
+    if (rxLine) rxLine.innerHTML = this._captureLineHtml(this._capture.rx, 'RX', 'Last Received');
+  }
+
+  async _transmitAction(action, fromRemote) {
     const c = this._config;
     const hass = this._hass;
     if (!action || !c) return;
@@ -1062,23 +1329,25 @@ class RFTCard extends HTMLElement {
     if (!c.gateway_service) { this._toast('Set the ESPHome gateway service in the editor first.', true); return; }
     if (!hass || typeof hass.callService !== 'function') { this._toast('hass.callService unavailable.', true); return; }
 
+    const txCode = this._effectiveTxCode(action, normalizeTxCode(code), fromRemote);
+
     if (c.confirm_send) {
       const ok = await this._confirmModal({
         title: 'Transmit RF code?',
-        body: `This transmits <b>${escapeHtml(label)}</b> (<code>${escapeHtml(action)}</code>) to the fan.<br><code>${escapeHtml(code)}</code>`,
+        body: `This transmits <b>${escapeHtml(label)}</b> (<code>${escapeHtml(action)}</code>) to the fan.<br><code>${escapeHtml(txCode)}</code>`,
         confirmLabel: 'Transmit'
       });
       if (!ok) return;
     }
 
     const service = `${c.gateway_service}_transmit_rf_fan`;
-    const txCode = normalizeTxCode(code);
     this._sending[action] = true;
     this._patchTriggerButton(action);
     this._patchRemoteButtons(action);
     try {
       await hass.callService('esphome', service, { action, code: txCode, repeat_count: c.repeat_count });
       this._noteLastPressed(action);
+      if (this._config.show_capture) this._noteCapture(txCode, 'sent');
       this._toast(`Sent ${label} ✓`, false);
     } catch (err) {
       this._toast(`Send failed: ${formatWsError(err)}`, true);
@@ -1434,6 +1703,12 @@ class RFTCardEditor extends HTMLElement {
             </div>
             <label class="rft-ed-check"><input type="checkbox" id="ed-breeze-with-speed"${c.breeze_with_speed ? ' checked' : ''}> Show breeze buttons with each direction's speeds</label>
             <div class="rft-ed-subhint">On: each direction's breeze buttons sit in that direction's speed row. Off: all breeze buttons share their own <b>Breeze</b> section.</div>
+            <div class="rft-ed-field"><span>Light/Dim base</span>
+              <select id="ed-light-base">
+                ${LIGHT_BASE_OPTS.map(o => `<option value="${o.value}"${c.light_base === o.value ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="rft-ed-subhint">Light/Dim are speed modifiers, so the frame carries a speed. To avoid changing the fan speed, the remote rebuilds Light/Dim on a chosen base. The <b>Fake speed</b> options put an unused value in the speed field — try each to find one your fan accepts for light without moving the blades. Also selectable live in the Test UI's Light section.</div>
             <label class="rft-ed-check"><input type="checkbox" id="ed-single-power"${c.single_power ? ' checked' : ''}> Use a single on/off button (top-right)</label>
             <div class="rft-ed-field"><span>Single power sends</span>
               <select id="ed-single-power-dir"${c.single_power ? '' : ' disabled'}>
@@ -1442,6 +1717,14 @@ class RFTCardEditor extends HTMLElement {
               </select>
             </div>
             <div class="rft-ed-subhint">On: replaces the per-direction Off buttons with one power button in the remote's top-right corner, sending the chosen off code.</div>
+            <label class="rft-ed-check"><input type="checkbox" id="ed-show-capture"${c.show_capture ? ' checked' : ''}> Show live capture readout</label>
+            <div class="rft-ed-subhint">Displays the last code sent (TX) / received (RX) by the fan's ESPHome node (event <code>esphome.rf_fan_received</code>) and whether it matches a known action. Handy for capturing/verifying codes without opening ESPHome logs.</div>
+            <div class="rft-ed-capture-elems" style="padding-left:22px;">
+              <label class="rft-ed-check"><input type="checkbox" class="ed-cap" data-cap="tx"${c.capture.tx ? ' checked' : ''}> TX line (Last Sent)</label>
+              <label class="rft-ed-check"><input type="checkbox" class="ed-cap" data-cap="rx"${c.capture.rx ? ' checked' : ''}> RX line (Last Received)</label>
+              <label class="rft-ed-check"><input type="checkbox" class="ed-cap" data-cap="count"${c.capture.count ? ' checked' : ''}> Count (#N)</label>
+              <label class="rft-ed-check"><input type="checkbox" class="ed-cap" data-cap="match"${c.capture.match ? ' checked' : ''}> Match / no-match label</label>
+            </div>
           </div>
         </details>
 
@@ -1554,6 +1837,15 @@ class RFTCardEditor extends HTMLElement {
 
     const bwsEl = root.querySelector('#ed-breeze-with-speed');
     if (bwsEl) bwsEl.addEventListener('change', () => set(() => { this._config.breeze_with_speed = bwsEl.checked; }));
+
+    const lightBaseEl = root.querySelector('#ed-light-base');
+    if (lightBaseEl) lightBaseEl.addEventListener('change', () => set(() => { this._config.light_base = lightBaseEl.value; }));
+    const showCapEl = root.querySelector('#ed-show-capture');
+    if (showCapEl) showCapEl.addEventListener('change', () => set(() => { this._config.show_capture = showCapEl.checked; }));
+    root.querySelectorAll('.ed-cap').forEach(cb => cb.addEventListener('change', () => set(() => {
+      const k = cb.getAttribute('data-cap');
+      this._config.capture = { ...normalizeCapture(this._config.capture), [k]: cb.checked };
+    })));
 
     const spEl = root.querySelector('#ed-single-power');
     const spDirEl = root.querySelector('#ed-single-power-dir');

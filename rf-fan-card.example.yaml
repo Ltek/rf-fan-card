@@ -1,5 +1,5 @@
 # RF Fan — Complete Code Map (v3, 2026-08-31).
-# These are the SAME codes baked into rf-fan-test-card.js as defaults, so you
+# These are the SAME codes baked into rf-fan-card.js as defaults, so you
 # only need this block if you want to paste an explicit override into the card's
 # `codes:` field (or edit/trim it). Values are BARE 26-bit rc_switch strings —
 # the ESPHome gateway's transmit_rc_switch_raw sets the protocol itself, so there
@@ -10,7 +10,7 @@
 # (speed_N / reverse_N are this card's convention since the integration only has
 # forward fan_speed_N; the fan's reverse frames are the last-6-bits variant).
 
-type: custom:rf-fan-test-card
+type: custom:rf-fan-card
 title: RF Fan Test
 gateway_service: rf_fan_gateway        # <-- change to YOUR esphome service prefix
 repeat_count: 4
@@ -39,7 +39,7 @@ codes:
   reverse_8: "01011110000000101000100000"
   reverse_9: "01011110000000101001100000"
   # ---- Light ----
-  light_toggle: "01011110000000100101010100"
+  light_toggle: "01011110000000100000010100"
   # ---- Dimming ----
   dim_up: "01011110000000100101010010"
   dim_down: "01011110000000100101010011"
