@@ -18,6 +18,9 @@ codes **straight to the ESPHome node, bypassing the integration's Python layer e
 **Requirements:** Home Assistant with an ESPHome node exposing an `..._transmit_rf_fan` action
 (as set up by the `ha-rf-fan` integration / its gateway YAML). The card only *transmits*.
 
+
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
+
 ## Layout
 
 The card has **two UI regions**. When both are enabled, header chips show/hide each live; when only
@@ -72,7 +75,7 @@ the integration's service at all, expose your own ESPHome API service (`rc_switc
 
 This card **ships with the full v3 code map baked in** (34 codes, bare rc_switch bit strings). Just
 set your gateway service and go — no pasting needed. To override, paste a JSON/YAML `codes` object
-into the editor (or see [`rf-fan-card.example.yaml`](rf-fan-card.example.yaml) for the full map and a `raw:`
+into the editor (or see [`rf-fan-ltek.example.yaml`](rf-fan-ltek.example.yaml) for the full map and a `raw:`
 timing fallback per row). Overriding replaces the built-in map entirely. Editing a single code with
 the ✎ button snapshots the full map into your config first, so the others aren't lost.
 
@@ -80,7 +83,7 @@ the ✎ button snapshots the full map into your config first, so the others aren
 
 ### Via HACS (recommended)
 
-This card is a **custom repository** (not in the HACS default store), so add it manually:
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Ltek&repository=rf-fan-card&category=dashboard)
 
 1. In HACS → **⋮ (top-right) → Custom repositories**, add `https://github.com/Ltek/rf-fan-card`
    with type **Dashboard**, then **Add**.
@@ -88,9 +91,8 @@ This card is a **custom repository** (not in the HACS default store), so add it 
 3. Clear your browser cache and hard-refresh.
 4. Add the card to a dashboard: type **RF Fan by LTek** in the card picker, or use the YAML below.
 
-> The one-click *"My Home Assistant → HACS repository"* badges only work for cards already in the
-> HACS **default store**; for a custom repository they report *"Repository not found."* Use the
-> manual step above.
+> If the badge shows *"Repository not found,"* your HACS hasn't been told about this custom
+> repository yet — use the manual **Custom repositories** step above, then it resolves.
 
 ### Manual
 
@@ -142,7 +144,7 @@ headers:
 ```
 
 For the full explicit code map (and a `raw:` fallback per row), see
-[`rf-fan-card.example.yaml`](rf-fan-card.example.yaml).
+[`rf-fan-ltek.example.yaml`](rf-fan-ltek.example.yaml).
 
 ## Options
 
