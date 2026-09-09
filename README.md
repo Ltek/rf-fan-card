@@ -191,3 +191,10 @@ For the full explicit code map (and a `raw:` fallback per row), see
   dedicated code (not derived).
 - Tested/Working are stored keyed by action name and guarded by a hash of the code set — if you
   change the `codes` map, old flags are safely ignored rather than mislabeled.
+
+---
+
+## Screenshots
+
+<!-- SCREENSHOTS:START -->
+<!-- SCREENSHOTS:END -->
